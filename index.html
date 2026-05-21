@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gun.js Serverless Group Chat</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        body { display: flex; flex-direction: column; height: 100vh; background: #f0f2f5; }
+        
+        /* Login Screen */
+        #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        #login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 350px; width: 100%; }
+        input, button { padding: 10px; margin: 10px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
+
+        /* Chat Screen */
+        #chat-screen { display: none; flex-direction: column; height: 100vh; max-width: 800px; width: 100%; margin: 0 auto; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+        #chat-header { background: #007bff; color: white; padding: 15px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        /* Message Styling */
+        .msg { max-width: 70%; padding: 10px 14px; border-radius: 8px; background: #e9ecef; align-self: flex-start; }
+        .msg.me { background: #007bff; color: white; align-self: flex-end; }
+        .msg-meta { font-size: 11px; color: #6c757d; margin-bottom: 4px; display: block; }
+        .msg.me .msg-meta { color: #e0e0e0; }
+        .msg img { max-width: 100%; border-radius: 4px; margin-top: 5px; display: block; max-height: 300px; }
+
+        /* Input Area */
+        #input-area { display: flex; padding: 15px; border-top: 1px solid #ddd; background: #fff; gap: 10px; align-items: center; }
+        #msg-input { flex: 1; margin: 0; }
+        #file-label { padding: 10px; background: #28a745; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        #file-input { display: none; }
+        #send-btn { width: auto; margin: 0; padding: 10px 20px; }
+    </style>
+    <!-- Include Gun.js Core & Required Extension Libraries -->
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-screen">
+        <div id="login-box">
+            <h2>Join Group Chat</h2>
+            <input type="text" id="nickname-input" placeholder="Enter unique nickname" maxlength="15">
+            <button id="login-btn">Join Chat</button>
+        </div>
+    </div>
+
+    <!-- Chat Screen -->
+    <div id="chat-screen">
+        <div id="chat-header">
+            <span>Gun.js Group Chat</span>
+            <span id="user-display"></span>
+        </div>
+        <div id="messages"></div>
+        <div id="input-area">
+            <label id="file-label" for="file-input">📷</label>
+            <input type="file" id="file-input" accept="image/*">
+            <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Gun.js database using public decentralized community relay nodes
+        const gun = Gun([
+            'https://herokuapp.com',
+            'https://herokuapp.com'
+        ]);
+
+        // This creates a shared network space specific to your group chat room
+        const chatRoom = gun.get('my-custom-github-group-chat-room');
+        const usersNode = chatRoom.get('users');
+        const messagesNode = chatRoom.get('messages');
+
+        let myNickname = "";
+        const activeMessageIds = new Set();
+
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const nicknameInput = document.getElementById('nickname-input');
+        const loginBtn = document.getElementById('login-btn');
+        const messagesDiv = document.getElementById('messages');
+        const msgInput = document.getElementById('msg-input');
+        const sendBtn = document.getElementById('send-btn');
+        const fileInput = document.getElementById('file-input');
+        const userDisplay = document.getElementById('user-display');
+
+        // Handle Nickname Validation and Lock checking
+        loginBtn.addEventListener('click', () => {
+            const rawName = nicknameInput.value.trim();
+            if (!rawName) return alert("Please enter a nickname.");
+            
+            const lowerName = rawName.toLowerCase();
+
+            // Fetch the username data node from the network
+            usersNode.get(lowerName).once((exists) => {
+                if (exists) {
+                    alert("This nickname is already taken! Please pick another one.");
+                } else {
+                    // Lock the name to prevent others from using it
+                    usersNode.get(lowerName).put({ claimed: true, timestamp: Date.now() });
+                    
+                    myNickname = rawName;
+                    userDisplay.textContent = `As: ${myNickname}`;
+                    loginScreen.style.display = 'none';
+                    chatScreen.style.display = 'flex';
+                    
+                    loadLiveMessages();
+                }
+            });
+        });
+
+        // Load Messages from Gun.js Graph
+        function loadLiveMessages() {
+            // .map() listens to every individual item added inside the 'messages' node
+            messagesNode.map().on((data, id) => {
+                if (!data || activeMessageIds.has(id)) return;
+                activeMessageIds.add(id);
+
+                const isMe = data.sender === myNickname;
+                const msgBubble = document.createElement('div');
+                msgBubble.classList.add('msg');
+                if (isMe) msgBubble.classList.add('me');
+
+                let content = `<span class="msg-meta">${escapeHTML(data.sender)}</span>`;
+                if (data.text) content += `<div>${escapeHTML(data.text)}</div>`;
+                if (data.image) content += `<img src="${data.image}" alt="Shared Image">`;
+
+                msgBubble.innerHTML = content;
+                messagesDiv.appendChild(msgBubble);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            });
+        }
+
+        // Send Text Message
+        function sendTextMessage() {
+            const text = msgInput.value.trim();
+            if (!text) return;
+            msgInput.value = "";
+
+            const msgId = 'msg-' + Math.random().toString(36).substring(2, 11);
+            messagesNode.get(msgId).put({
+                sender: myNickname,
+                text: text,
+                timestamp: Date.now()
+            });
+        }
+
+        sendBtn.addEventListener('click', sendTextMessage);
+        msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
+
+        // Handle Image Upload and convert file data into a string
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Enforce a basic client-side size check (approx 1MB) to prevent browser stuttering
+            if (file.size > 1024 * 1024) {
+                alert("Image file size is too large! Please choose an image under 1MB.");
+                fileInput.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const msgId = 'msg-' + Math.random().toString(36).substring(2, 11);
+                messagesNode.get(msgId).put({
+                    sender: myNickname,
+                    image: event.target.result, // Base64 raw image string data
+                    timestamp: Date.now()
+                });
+            };
+            reader.readAsDataURL(file);
+            fileInput.value = "";
+        });
+
+        // HTML Sanitization helper
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>
