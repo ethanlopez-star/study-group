@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gun.js Group Chat</title>
+    <title>Gun.js Robust Group Chat</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
         body { display: flex; flex-direction: column; height: 100vh; background: #f0f2f5; }
@@ -35,10 +35,8 @@
         #send-btn { width: auto; margin: 0; padding: 10px 20px; }
     </style>
 
-    <!-- UPDATED: Reliable CDN Links for Gun.js -->
+    <!-- Core Gun Libraries Loaded Statically -->
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
-    <script src="https://jsdelivr.net"></script>
 </head>
 <body>
 
@@ -54,7 +52,7 @@
     <!-- Chat Screen -->
     <div id="chat-screen">
         <div id="chat-header">
-            <span>Group Chat</span>
+            <span>Study Group Chat</span>
             <span id="user-display"></span>
         </div>
         <div id="messages"></div>
@@ -67,13 +65,13 @@
     </div>
 
     <script>
-        // UPDATED: Initialize Gun with the most reliable community peer
-        const gun = Gun({
-            peers: ['https://gun-manhattan.herokuapp.com/gun']
-        });
+        // Use multiple community backup server entrypoints to avoid single points of failure
+        const gun = Gun([
+            'https://gun-manhattan.herokuapp.com/gun',
+            'https://gundb-relay.herokuapp.com/gun'
+        ]);
 
-        // IMPORTANT: Change this string to make your chat room private!
-        const chatRoom = gun.get('my-unique-study-group-chat-v1');
+        const chatRoom = gun.get('custom-study-session-group-v2');
         const usersNode = chatRoom.get('users');
         const messagesNode = chatRoom.get('messages');
 
@@ -90,32 +88,47 @@
         const fileInput = document.getElementById('file-input');
         const userDisplay = document.getElementById('user-display');
 
-        // Handle Login
+        // Handle Login button action
         loginBtn.addEventListener('click', () => {
             const rawName = nicknameInput.value.trim();
             if (!rawName) return alert("Please enter a nickname.");
             
             const lowerName = rawName.toLowerCase();
+            let processFinished = false;
 
-            // Check if name is taken
+            // Set up a 1.5-second connection safety timer breaker
+            const safetyFallbackTimeout = setTimeout(() => {
+                if (!processFinished) {
+                    processFinished = true;
+                    console.log("Server response delayed. Using client-side safety path.");
+                    enterChatArea(rawName);
+                }
+            }, 1500);
+
+            // Contact database node to verify name availability
             usersNode.get(lowerName).once((data) => {
-                if (data && data.claimed) {
-                    alert("This nickname is already taken! Please pick another one.");
+                if (processFinished) return;
+                clearTimeout(safetyFallbackTimeout);
+                processFinished = true;
+
+                if (data && data.claimed === true) {
+                    alert("This nickname is already in use! Please choose another.");
                 } else {
-                    // Lock the nickname
                     usersNode.get(lowerName).put({ claimed: true });
-                    
-                    myNickname = rawName;
-                    userDisplay.textContent = `As: ${myNickname}`;
-                    loginScreen.style.display = 'none';
-                    chatScreen.style.display = 'flex';
-                    
-                    loadLiveMessages();
+                    enterChatArea(rawName);
                 }
             });
         });
 
-        // Load Messages
+        function enterChatArea(name) {
+            myNickname = name;
+            userDisplay.textContent = `As: ${myNickname}`;
+            loginScreen.style.display = 'none';
+            chatScreen.style.display = 'flex';
+            loadLiveMessages();
+        }
+
+        // Live Message rendering loop 
         function loadLiveMessages() {
             messagesNode.map().on((data, id) => {
                 if (!data || activeMessageIds.has(id) || !data.sender) return;
@@ -133,20 +146,18 @@
                 msgBubble.innerHTML = content;
                 messagesDiv.appendChild(msgBubble);
                 
-                // Auto-scroll to bottom
-                setTimeout(() => {
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                }, 100);
+                // Keep view anchored to newest chats
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             });
         }
 
-        // Send Text
+        // Send out text entry
         function sendTextMessage() {
             const text = msgInput.value.trim();
             if (!text) return;
             msgInput.value = "";
 
-            const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
             messagesNode.get(msgId).put({
                 sender: myNickname,
                 text: text,
@@ -157,20 +168,20 @@
         sendBtn.addEventListener('click', sendTextMessage);
         msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
 
-        // Send Image
+        // Base64 file image encoder
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            if (file.size > 1024 * 1024) { // 1MB Limit
-                alert("Image too large! Please use an image under 1MB.");
+            if (file.size > 800 * 1024) { // Checked limit reduced down slightly to 800kb for safety
+                alert("File size limit exceeded! Keep images below 800KB.");
                 fileInput.value = "";
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = function(event) {
-                const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
                 messagesNode.get(msgId).put({
                     sender: myNickname,
                     image: event.target.result,
@@ -181,12 +192,9 @@
             fileInput.value = "";
         });
 
-        // Security Helper
         function escapeHTML(str) {
             if (!str) return "";
-            return str.replace(/[&<>'"]/g, 
-                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-            );
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
     </script>
 </body>
