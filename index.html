@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gun.js Serverless Group Chat</title>
+    <title>Gun.js Group Chat</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
         body { display: flex; flex-direction: column; height: 100vh; background: #f0f2f5; }
@@ -34,8 +34,10 @@
         #file-input { display: none; }
         #send-btn { width: auto; margin: 0; padding: 10px 20px; }
     </style>
-    <!-- Include Gun.js Core & Required Extension Libraries -->
-    <script src="https://jsdelivr.net"></script>
+
+    <!-- UPDATED: Reliable CDN Links for Gun.js -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
     <script src="https://jsdelivr.net"></script>
 </head>
 <body>
@@ -52,7 +54,7 @@
     <!-- Chat Screen -->
     <div id="chat-screen">
         <div id="chat-header">
-            <span>Gun.js Group Chat</span>
+            <span>Group Chat</span>
             <span id="user-display"></span>
         </div>
         <div id="messages"></div>
@@ -65,14 +67,13 @@
     </div>
 
     <script>
-        // Initialize Gun.js database using public decentralized community relay nodes
-        const gun = Gun([
-            'https://herokuapp.com',
-            'https://herokuapp.com'
-        ]);
+        // UPDATED: Initialize Gun with the most reliable community peer
+        const gun = Gun({
+            peers: ['https://gun-manhattan.herokuapp.com/gun']
+        });
 
-        // This creates a shared network space specific to your group chat room
-        const chatRoom = gun.get('my-custom-github-group-chat-room');
+        // IMPORTANT: Change this string to make your chat room private!
+        const chatRoom = gun.get('my-unique-study-group-chat-v1');
         const usersNode = chatRoom.get('users');
         const messagesNode = chatRoom.get('messages');
 
@@ -89,20 +90,20 @@
         const fileInput = document.getElementById('file-input');
         const userDisplay = document.getElementById('user-display');
 
-        // Handle Nickname Validation and Lock checking
+        // Handle Login
         loginBtn.addEventListener('click', () => {
             const rawName = nicknameInput.value.trim();
             if (!rawName) return alert("Please enter a nickname.");
             
             const lowerName = rawName.toLowerCase();
 
-            // Fetch the username data node from the network
-            usersNode.get(lowerName).once((exists) => {
-                if (exists) {
+            // Check if name is taken
+            usersNode.get(lowerName).once((data) => {
+                if (data && data.claimed) {
                     alert("This nickname is already taken! Please pick another one.");
                 } else {
-                    // Lock the name to prevent others from using it
-                    usersNode.get(lowerName).put({ claimed: true, timestamp: Date.now() });
+                    // Lock the nickname
+                    usersNode.get(lowerName).put({ claimed: true });
                     
                     myNickname = rawName;
                     userDisplay.textContent = `As: ${myNickname}`;
@@ -114,11 +115,10 @@
             });
         });
 
-        // Load Messages from Gun.js Graph
+        // Load Messages
         function loadLiveMessages() {
-            // .map() listens to every individual item added inside the 'messages' node
             messagesNode.map().on((data, id) => {
-                if (!data || activeMessageIds.has(id)) return;
+                if (!data || activeMessageIds.has(id) || !data.sender) return;
                 activeMessageIds.add(id);
 
                 const isMe = data.sender === myNickname;
@@ -132,17 +132,21 @@
 
                 msgBubble.innerHTML = content;
                 messagesDiv.appendChild(msgBubble);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                
+                // Auto-scroll to bottom
+                setTimeout(() => {
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }, 100);
             });
         }
 
-        // Send Text Message
+        // Send Text
         function sendTextMessage() {
             const text = msgInput.value.trim();
             if (!text) return;
             msgInput.value = "";
 
-            const msgId = 'msg-' + Math.random().toString(36).substring(2, 11);
+            const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
             messagesNode.get(msgId).put({
                 sender: myNickname,
                 text: text,
@@ -153,24 +157,23 @@
         sendBtn.addEventListener('click', sendTextMessage);
         msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
 
-        // Handle Image Upload and convert file data into a string
+        // Send Image
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            // Enforce a basic client-side size check (approx 1MB) to prevent browser stuttering
-            if (file.size > 1024 * 1024) {
-                alert("Image file size is too large! Please choose an image under 1MB.");
+            if (file.size > 1024 * 1024) { // 1MB Limit
+                alert("Image too large! Please use an image under 1MB.");
                 fileInput.value = "";
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = function(event) {
-                const msgId = 'msg-' + Math.random().toString(36).substring(2, 11);
+                const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
                 messagesNode.get(msgId).put({
                     sender: myNickname,
-                    image: event.target.result, // Base64 raw image string data
+                    image: event.target.result,
                     timestamp: Date.now()
                 });
             };
@@ -178,8 +181,9 @@
             fileInput.value = "";
         });
 
-        // HTML Sanitization helper
+        // Security Helper
         function escapeHTML(str) {
+            if (!str) return "";
             return str.replace(/[&<>'"]/g, 
                 tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
             );
