@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gun.js Robust Group Chat</title>
+    <title>Direct P2P Group Chat</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
         body { display: flex; flex-direction: column; height: 100vh; background: #f0f2f5; }
         
-        /* Login Screen */
-        #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        #login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 350px; width: 100%; }
-        input, button { padding: 10px; margin: 10px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        /* Setup Screen */
+        #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
+        .box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; margin-bottom: 20px; }
+        input, button { padding: 12px; margin: 10px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
         button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background: #0056b3; }
-
+        .host-btn { background: #28a745; }
+        .host-btn:hover { background: #218838; }
+        
         /* Chat Screen */
         #chat-screen { display: none; flex-direction: column; height: 100vh; max-width: 800px; width: 100%; margin: 0 auto; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        #chat-header { background: #007bff; color: white; padding: 15px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; }
+        #chat-header { background: #007bff; color: white; padding: 15px; font-size: 16px; font-weight: bold; display: flex; flex-direction: column; gap: 5px; }
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
         
         /* Message Styling */
@@ -30,30 +32,39 @@
         /* Input Area */
         #input-area { display: flex; padding: 15px; border-top: 1px solid #ddd; background: #fff; gap: 10px; align-items: center; }
         #msg-input { flex: 1; margin: 0; }
-        #file-label { padding: 10px; background: #28a745; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        #file-label { padding: 10px; background: #6c757d; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; }
         #file-input { display: none; }
         #send-btn { width: auto; margin: 0; padding: 10px 20px; }
     </style>
-
-    <!-- Core Gun Libraries Loaded Statically -->
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <!-- Use PeerJS library for establishing direct peer connections -->
+    <script src="https://unpkg.com"></script>
 </head>
 <body>
 
-    <!-- Login Screen -->
-    <div id="login-screen">
-        <div id="login-box">
-            <h2>Join Group Chat</h2>
-            <input type="text" id="nickname-input" placeholder="Enter unique nickname" maxlength="15">
-            <button id="login-btn">Join Chat</button>
+    <!-- Setup Screen -->
+    <div id="setup-screen">
+        <div class="box">
+            <h2>1. Pick a Nickname</h2>
+            <input type="text" id="nickname-input" placeholder="Your Name" maxlength="15">
+        </div>
+
+        <div class="box">
+            <h2>2. Connection Options</h2>
+            <button id="host-btn" class="host-btn">Create New Room (Be the Host)</button>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <input type="text" id="room-input" placeholder="Paste Friend's Room Code here">
+            <button id="join-btn">Join Friend's Room</button>
         </div>
     </div>
 
     <!-- Chat Screen -->
     <div id="chat-screen">
         <div id="chat-header">
-            <span>Study Group Chat</span>
-            <span id="user-display"></span>
+            <div style="display: flex; justify-content: space-between;">
+                <span id="user-display">Connecting...</span>
+                <span id="peer-count">Active Connections: 0</span>
+            </div>
+            <div id="room-id-display" style="font-size: 12px; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 4px; margin-top: 5px; cursor: pointer; text-align: center;"></div>
         </div>
         <div id="messages"></div>
         <div id="input-area">
@@ -65,135 +76,216 @@
     </div>
 
     <script>
-        // Use multiple community backup server entrypoints to avoid single points of failure
-        const gun = Gun([
-            'https://gun-manhattan.herokuapp.com/gun',
-            'https://gundb-relay.herokuapp.com/gun'
-        ]);
-
-        const chatRoom = gun.get('custom-study-session-group-v2');
-        const usersNode = chatRoom.get('users');
-        const messagesNode = chatRoom.get('messages');
-
+        let peer = null;
+        let connections = [];
         let myNickname = "";
-        const activeMessageIds = new Set();
+        let takenNames = new Set();
+        let isHost = false;
 
-        const loginScreen = document.getElementById('login-screen');
+        const setupScreen = document.getElementById('setup-screen');
         const chatScreen = document.getElementById('chat-screen');
         const nicknameInput = document.getElementById('nickname-input');
-        const loginBtn = document.getElementById('login-btn');
+        const hostBtn = document.getElementById('host-btn');
+        const roomInput = document.getElementById('room-input');
+        const joinBtn = document.getElementById('join-btn');
         const messagesDiv = document.getElementById('messages');
         const msgInput = document.getElementById('msg-input');
         const sendBtn = document.getElementById('send-btn');
         const fileInput = document.getElementById('file-input');
         const userDisplay = document.getElementById('user-display');
+        const roomIdDisplay = document.getElementById('room-id-display');
+        const peerCount = document.getElementById('peer-count');
 
-        // Handle Login button action
-        loginBtn.addEventListener('click', () => {
-            const rawName = nicknameInput.value.trim();
-            if (!rawName) return alert("Please enter a nickname.");
+        // Setup 1: Initialize Room as Host
+        hostBtn.addEventListener('click', () => {
+            if (!getValidatedName()) return;
+            isHost = true;
+            takenNames.add(myNickname.toLowerCase());
             
-            const lowerName = rawName.toLowerCase();
-            let processFinished = false;
-
-            // Set up a 1.5-second connection safety timer breaker
-            const safetyFallbackTimeout = setTimeout(() => {
-                if (!processFinished) {
-                    processFinished = true;
-                    console.log("Server response delayed. Using client-side safety path.");
-                    enterChatArea(rawName);
-                }
-            }, 1500);
-
-            // Contact database node to verify name availability
-            usersNode.get(lowerName).once((data) => {
-                if (processFinished) return;
-                clearTimeout(safetyFallbackTimeout);
-                processFinished = true;
-
-                if (data && data.claimed === true) {
-                    alert("This nickname is already in use! Please choose another.");
-                } else {
-                    usersNode.get(lowerName).put({ claimed: true });
-                    enterChatArea(rawName);
-                }
-            });
+            // Create a completely clean random Room ID sequence
+            const generatedRoomId = 'room-' + Math.random().toString(36).substring(2, 9);
+            startPeerNetwork(generatedRoomId);
         });
 
-        function enterChatArea(name) {
-            myNickname = name;
-            userDisplay.textContent = `As: ${myNickname}`;
-            loginScreen.style.display = 'none';
-            chatScreen.style.display = 'flex';
-            loadLiveMessages();
+        // Setup 2: Join Existing Room as Guest
+        joinBtn.addEventListener('click', () => {
+            if (!getValidatedName()) return;
+            const targetRoom = roomInput.value.trim();
+            if (!targetRoom) return alert("Please enter your friend's Room Code.");
+            
+            isHost = false;
+            startPeerNetwork(null, targetRoom);
+        });
+
+        function getValidatedName() {
+            myNickname = nicknameInput.value.trim();
+            if (!myNickname) {
+                alert("Please enter a nickname first.");
+                return false;
+            }
+            return true;
         }
 
-        // Live Message rendering loop 
-        function loadLiveMessages() {
-            messagesNode.map().on((data, id) => {
-                if (!data || activeMessageIds.has(id) || !data.sender) return;
-                activeMessageIds.add(id);
+        // Initialize PeerJS Core Engine Network Architecture
+        function startPeerNetwork(id, targetId) {
+            peer = new Peer(id);
 
-                const isMe = data.sender === myNickname;
-                const msgBubble = document.createElement('div');
-                msgBubble.classList.add('msg');
-                if (isMe) msgBubble.classList.add('me');
-
-                let content = `<span class="msg-meta">${escapeHTML(data.sender)}</span>`;
-                if (data.text) content += `<div>${escapeHTML(data.text)}</div>`;
-                if (data.image) content += `<img src="${data.image}" alt="Shared Image">`;
-
-                msgBubble.innerHTML = content;
-                messagesDiv.appendChild(msgBubble);
+            peer.on('open', (activeId) => {
+                setupScreen.style.display = 'none';
+                chatScreen.style.display = 'flex';
+                userDisplay.textContent = `User: ${myNickname}`;
                 
-                // Keep view anchored to newest chats
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                if (isHost) {
+                    roomIdDisplay.textContent = `📋 Click to Copy Room Code: ${activeId}`;
+                    roomIdDisplay.onclick = () => {
+                        navigator.clipboard.writeText(activeId);
+                        alert("Room Code copied! Send this code to your friends.");
+                    };
+                    addSystemMessage("Room started successfully. Send the Code above to your friends.");
+                } else {
+                    roomIdDisplay.textContent = `Connected to Room: ${targetId}`;
+                    // Connect directly to the Host browser instance
+                    const conn = peer.connect(targetId, { metadata: { nickname: myNickname } });
+                    manageConnectionEvents(conn);
+                }
+            });
+
+            // Host catches incoming connection requests
+            peer.on('connection', (conn) => {
+                if (!isHost) return;
+                const incomingGuestName = conn.metadata.nickname;
+                
+                // Block matching duplicate nicknames immediately
+                if (takenNames.has(incomingGuestName.toLowerCase())) {
+                    setTimeout(() => {
+                        conn.send({ type: 'rejected', reason: 'Nickname already in use in this room.' });
+                        conn.close();
+                    }, 500);
+                    return;
+                }
+
+                takenNames.add(incomingGuestName.toLowerCase());
+                manageConnectionEvents(conn);
+                
+                setTimeout(() => {
+                    broadcastStream({ type: 'system', text: `${incomingGuestName} entered the chat room.` });
+                    syncUserLists();
+                }, 500);
             });
         }
 
-        // Send out text entry
-        function sendTextMessage() {
+        function manageConnectionEvents(conn) {
+            connections.push(conn);
+            refreshConnectedDisplayCount();
+
+            conn.on('data', (data) => {
+                if (data.type === 'rejected') {
+                    alert(data.reason);
+                    window.location.reload();
+                }
+                if (data.type === 'chat' || data.type === 'system') {
+                    appendMessageBubble(data);
+                    if (isHost) broadcastStream(data, conn); // Host acts as the server router relaying to everyone else
+                }
+                if (data.type === 'user-list' && !isHost) {
+                    takenNames = new Set(data.list);
+                }
+            });
+
+            conn.on('close', () => {
+                connections = connections.filter(c => c !== conn);
+                refreshConnectedDisplayCount();
+                const disconnectedName = conn.metadata?.nickname || "Someone";
+                if (isHost) {
+                    takenNames.delete(disconnectedName.toLowerCase());
+                    broadcastStream({ type: 'system', text: `${disconnectedName} logged out.` });
+                    syncUserLists();
+                }
+            });
+        }
+
+        function refreshConnectedDisplayCount() {
+            peerCount.textContent = `Active Connections: ${connections.length}`;
+        }
+
+        function syncUserLists() {
+            if (!isHost) return;
+            broadcastStream({ type: 'user-list', list: Array.from(takenNames) });
+        }
+
+        // Router pipeline distribution
+        function broadcastStream(data, excludeConnection = null) {
+            connections.forEach(conn => {
+                if (conn !== excludeConnection && conn.open) {
+                    conn.send(data);
+                }
+            });
+        }
+
+        // Text Message Delivery
+        function dispatchTextMessage() {
             const text = msgInput.value.trim();
             if (!text) return;
             msgInput.value = "";
 
-            const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
-            messagesNode.get(msgId).put({
-                sender: myNickname,
-                text: text,
-                timestamp: Date.now()
-            });
+            const data = { type: 'chat', sender: myNickname, text: text };
+            appendMessageBubble(data, true);
+
+            if (isHost) broadcastStream(data);
+            else connections.forEach(c => { if(c.open) c.send(data); });
         }
 
-        sendBtn.addEventListener('click', sendTextMessage);
-        msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
+        sendBtn.addEventListener('click', dispatchTextMessage);
+        msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') dispatchTextMessage(); });
 
-        // Base64 file image encoder
+        // Image Handling
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
+            const file = e.target.files;
             if (!file) return;
-
-            if (file.size > 800 * 1024) { // Checked limit reduced down slightly to 800kb for safety
-                alert("File size limit exceeded! Keep images below 800KB.");
-                fileInput.value = "";
-                return;
-            }
 
             const reader = new FileReader();
             reader.onload = function(event) {
-                const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
-                messagesNode.get(msgId).put({
+                const data = {
+                    type: 'chat',
                     sender: myNickname,
-                    image: event.target.result,
-                    timestamp: Date.now()
-                });
+                    image: event.target.result
+                };
+                appendMessageBubble(data, true);
+                if (isHost) broadcastStream(data);
+                else connections.forEach(c => { if(c.open) c.send(data); });
             };
             reader.readAsDataURL(file);
             fileInput.value = "";
         });
 
+        // UI Builder Pipeline
+        function appendMessageBubble(data, isMe = false) {
+            const msgBubble = document.createElement('div');
+            msgBubble.classList.add('msg');
+            
+            if (isMe || data.sender === myNickname) msgBubble.classList.add('me');
+
+            if (data.type === 'system') {
+                msgBubble.style.alignSelf = 'center';
+                msgBubble.style.background = '#fff3cd';
+                msgBubble.style.color = '#856404';
+                msgBubble.innerHTML = `<span style="font-size:12px;">${escapeHTML(data.text)}</span>`;
+            } else {
+                let content = `<span class="msg-meta">${escapeHTML(data.sender)}</span>`;
+                if (data.text) content += `<div>${escapeHTML(data.text)}</div>`;
+                if (data.image) content += `<img src="${data.image}" alt="P2P Shared Image">`;
+                msgBubble.innerHTML = content;
+            }
+
+            messagesDiv.appendChild(msgBubble);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            appendMessageBubble({ type: 'system', text: text });
+        }
+
         function escapeHTML(str) {
-            if (!str) return "";
             return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
     </script>
