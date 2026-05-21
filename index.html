@@ -3,56 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direct P2P Group Chat</title>
+    <title>Sleek Dark P2P Chat</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        body { display: flex; flex-direction: column; height: 100vh; background: #f0f2f5; }
+        /* Sleek Cyber Dark UI Theme Styling */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; flex-direction: column; height: 100vh; background: #0f141c; color: #e3e6eb; }
         
-        /* Setup Screen */
-        #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; }
-        .box { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; margin-bottom: 20px; }
-        input, button { padding: 12px; margin: 10px 0; width: 100%; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0056b3; }
-        .host-btn { background: #28a745; }
-        .host-btn:hover { background: #218838; }
+        /* Setup Container */
+        #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; background: #0b0f17; }
+        .box { background: #171f2e; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); text-align: center; max-width: 400px; width: 100%; margin-bottom: 20px; border: 1px solid #243147; }
+        h2 { font-size: 20px; margin-bottom: 5px; color: #0084ff; font-weight: 600; }
+        input, button { padding: 12px; margin: 12px 0; width: 100%; border: 1px solid #2a3b54; border-radius: 6px; font-size: 16px; background: #1d293b; color: #fff; outline: none; transition: 0.2s; }
+        input:focus { border-color: #0084ff; box-shadow: 0 0 0 2px rgba(0,132,255,0.2); }
+        button { background: #0084ff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0066cc; }
+        .host-btn { background: #00b16a; }
+        .host-btn:hover { background: #009659; }
         
-        /* Chat Screen */
-        #chat-screen { display: none; flex-direction: column; height: 100vh; max-width: 800px; width: 100%; margin: 0 auto; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        #chat-header { background: #007bff; color: white; padding: 15px; font-size: 16px; font-weight: bold; display: flex; flex-direction: column; gap: 5px; }
-        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        /* Chat Interface Layout */
+        #chat-screen { display: none; flex-direction: column; height: 100vh; max-width: 900px; width: 100%; margin: 0 auto; background: #121824; border-left: 1px solid #1f2a3c; border-right: 1px solid #1f2a3c; }
+        #chat-header { background: #17202e; border-bottom: 1px solid #233045; padding: 15px 20px; font-size: 16px; font-weight: bold; display: flex; flex-direction: column; gap: 6px; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; background: #0e131f; }
         
-        /* Message Styling */
-        .msg { max-width: 70%; padding: 10px 14px; border-radius: 8px; background: #e9ecef; align-self: flex-start; }
-        .msg.me { background: #007bff; color: white; align-self: flex-end; }
-        .msg-meta { font-size: 11px; color: #6c757d; margin-bottom: 4px; display: block; }
-        .msg.me .msg-meta { color: #e0e0e0; }
-        .msg img { max-width: 100%; border-radius: 4px; margin-top: 5px; display: block; max-height: 300px; }
+        /* Dark Theme Message Elements */
+        .msg { max-width: 75%; padding: 11px 15px; border-radius: 10px; background: #222d3f; align-self: flex-start; line-height: 1.4; word-wrap: break-word; border: 1px solid #2c3a50; }
+        .msg.me { background: #0084ff; color: white; align-self: flex-end; border: none; }
+        .msg-meta { font-size: 11px; color: #8ba2c0; margin-bottom: 5px; display: block; font-weight: bold; }
+        .msg.me .msg-meta { color: #b3d7ff; }
+        .msg img { max-width: 100%; border-radius: 6px; margin-top: 8px; display: block; max-height: 320px; border: 1px solid rgba(255,255,255,0.1); }
 
-        /* Input Area */
-        #input-area { display: flex; padding: 15px; border-top: 1px solid #ddd; background: #fff; gap: 10px; align-items: center; }
+        /* System Messages */
+        .system-msg { align-self: center; background: #2a2115; color: #ffd075; border: 1px solid #4a3b20; font-size: 13px; padding: 6px 14px; border-radius: 20px; text-align: center; }
+
+        /* Input Controls Footer */
+        #input-area { display: flex; padding: 15px 20px; border-top: 1px solid #233045; background: #17202e; gap: 12px; align-items: center; }
         #msg-input { flex: 1; margin: 0; }
-        #file-label { padding: 10px; background: #6c757d; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        #file-label { padding: 12px 14px; background: #2c3a50; color: #a0aec0; border-radius: 6px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: 0.2s; border: 1px solid #374963; }
+        #file-label:hover { background: #374963; color: #fff; }
         #file-input { display: none; }
-        #send-btn { width: auto; margin: 0; padding: 10px 20px; }
+        #send-btn { width: auto; margin: 0; padding: 12px 24px; }
     </style>
-    <!-- Use PeerJS library for establishing direct peer connections -->
-    <script src="https://unpkg.com"></script>
+
+    <!-- FIXED: Using jsDelivr distribution CDN which prevents loading script blocks -->
+    <script src="https://jsdelivr.net"></script>
 </head>
 <body>
 
     <!-- Setup Screen -->
     <div id="setup-screen">
         <div class="box">
-            <h2>1. Pick a Nickname</h2>
-            <input type="text" id="nickname-input" placeholder="Your Name" maxlength="15">
+            <h2>1. Profile Nickname</h2>
+            <input type="text" id="nickname-input" placeholder="Enter display name..." maxlength="15">
         </div>
 
         <div class="box">
-            <h2>2. Connection Options</h2>
-            <button id="host-btn" class="host-btn">Create New Room (Be the Host)</button>
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-            <input type="text" id="room-input" placeholder="Paste Friend's Room Code here">
+            <h2>2. Session Engine</h2>
+            <button id="host-btn" class="host-btn">Create New Room</button>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #243147;">
+            <input type="text" id="room-input" placeholder="Paste entry Room Code...">
             <button id="join-btn">Join Friend's Room</button>
         </div>
     </div>
@@ -60,11 +68,11 @@
     <!-- Chat Screen -->
     <div id="chat-screen">
         <div id="chat-header">
-            <div style="display: flex; justify-content: space-between;">
-                <span id="user-display">Connecting...</span>
-                <span id="peer-count">Active Connections: 0</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="user-display" style="color: #0084ff;">User: Loading...</span>
+                <span id="peer-count" style="font-size: 13px; color: #a0aec0; background: #222d3f; padding: 3px 8px; border-radius: 12px;">Connections: 0</span>
             </div>
-            <div id="room-id-display" style="font-size: 12px; background: rgba(0,0,0,0.15); padding: 6px; border-radius: 4px; margin-top: 5px; cursor: pointer; text-align: center;"></div>
+            <div id="room-id-display" style="font-size: 12px; background: #1d293b; border: 1px dashed #3b4f6b; padding: 8px; border-radius: 6px; margin-top: 4px; cursor: pointer; text-align: center; color: #cbd5e1;"></div>
         </div>
         <div id="messages"></div>
         <div id="input-area">
@@ -96,197 +104,210 @@
         const roomIdDisplay = document.getElementById('room-id-display');
         const peerCount = document.getElementById('peer-count');
 
-        // Setup 1: Initialize Room as Host
+        // Click Handler for Creating a New Room
         hostBtn.addEventListener('click', () => {
-            if (!getValidatedName()) return;
+            if (!validateInputForm()) return;
             isHost = true;
             takenNames.add(myNickname.toLowerCase());
             
-            // Create a completely clean random Room ID sequence
-            const generatedRoomId = 'room-' + Math.random().toString(36).substring(2, 9);
-            startPeerNetwork(generatedRoomId);
+            // Explicitly generate configuration parameters using random strings
+            const roomCodeId = 'room-' + Math.random().toString(36).substring(2, 9);
+            initializeP2PNetwork(roomCodeId);
         });
 
-        // Setup 2: Join Existing Room as Guest
+        // Click Handler for Joining a Room
         joinBtn.addEventListener('click', () => {
-            if (!getValidatedName()) return;
-            const targetRoom = roomInput.value.trim();
-            if (!targetRoom) return alert("Please enter your friend's Room Code.");
+            if (!validateInputForm()) return;
+            const enteredCode = roomInput.value.trim();
+            if (!enteredCode) return alert("Please paste your friend's Room Code.");
             
             isHost = false;
-            startPeerNetwork(null, targetRoom);
+            initializeP2PNetwork(null, enteredCode);
         });
 
-        function getValidatedName() {
+        function validateInputForm() {
             myNickname = nicknameInput.value.trim();
             if (!myNickname) {
-                alert("Please enter a nickname first.");
+                alert("Please pick a nickname first.");
                 return false;
             }
             return true;
         }
 
-        // Initialize PeerJS Core Engine Network Architecture
-        function startPeerNetwork(id, targetId) {
-            peer = new Peer(id);
+        // Core Network Communication Engine
+        function initializeP2PNetwork(assignedId, remoteId = null) {
+            try {
+                // Instantiating PeerJS using an explicit public fallback array configuration
+                peer = new Peer(assignedId, {
+                    debug: 1
+                });
 
-            peer.on('open', (activeId) => {
-                setupScreen.style.display = 'none';
-                chatScreen.style.display = 'flex';
-                userDisplay.textContent = `User: ${myNickname}`;
-                
-                if (isHost) {
-                    roomIdDisplay.textContent = `📋 Click to Copy Room Code: ${activeId}`;
-                    roomIdDisplay.onclick = () => {
-                        navigator.clipboard.writeText(activeId);
-                        alert("Room Code copied! Send this code to your friends.");
-                    };
-                    addSystemMessage("Room started successfully. Send the Code above to your friends.");
-                } else {
-                    roomIdDisplay.textContent = `Connected to Room: ${targetId}`;
-                    // Connect directly to the Host browser instance
-                    const conn = peer.connect(targetId, { metadata: { nickname: myNickname } });
-                    manageConnectionEvents(conn);
-                }
-            });
+                // Error listener catch block to immediately handle locked signaling sockets
+                peer.on('error', (err) => {
+                    console.error("Network initialization fault:", err);
+                    alert("Network Connection Error: " + err.type + ". Try refreshing or switching connections.");
+                });
 
-            // Host catches incoming connection requests
-            peer.on('connection', (conn) => {
-                if (!isHost) return;
-                const incomingGuestName = conn.metadata.nickname;
-                
-                // Block matching duplicate nicknames immediately
-                if (takenNames.has(incomingGuestName.toLowerCase())) {
+                peer.on('open', (confirmedId) => {
+                    setupScreen.style.display = 'none';
+                    chatScreen.style.display = 'flex';
+                    userDisplay.textContent = `Active User: ${myNickname}`;
+                    
+                    if (isHost) {
+                        roomIdDisplay.innerHTML = `📋 <b>Click to Copy Code:</b> <span style="color:#00b16a">${confirmedId}</span>`;
+                        roomIdDisplay.onclick = () => {
+                            navigator.clipboard.writeText(confirmedId);
+                            alert("Room Code copied to clipboard! Send it to friends.");
+                        };
+                        addSystemAlert("Room generated. Share your Room Code string with friends.");
+                    } else {
+                        roomIdDisplay.textContent = `Connected to Room: ${remoteId}`;
+                        const directChannel = peer.connect(remoteId, { metadata: { nickname: myNickname } });
+                        configureStreamEvents(directChannel);
+                    }
+                });
+
+                // Host structural handler logic to absorb data tunnels
+                peer.on('connection', (incomingTunnel) => {
+                    if (!isHost) return;
+                    const connectionProfileName = incomingTunnel.metadata.nickname;
+                    
+                    if (takenNames.has(connectionProfileName.toLowerCase())) {
+                        setTimeout(() => {
+                            incomingTunnel.send({ type: 'denied', info: 'Username signature already exists inside this workspace.' });
+                            incomingTunnel.close();
+                        }, 400);
+                        return;
+                    }
+
+                    takenNames.add(connectionProfileName.toLowerCase());
+                    configureStreamEvents(incomingTunnel);
+                    
                     setTimeout(() => {
-                        conn.send({ type: 'rejected', reason: 'Nickname already in use in this room.' });
-                        conn.close();
-                    }, 500);
-                    return;
-                }
+                        pushPayload({ type: 'system', text: `${connectionProfileName} joined the group chat.` });
+                        synchronizeNetworkUsers();
+                    }, 400);
+                });
 
-                takenNames.add(incomingGuestName.toLowerCase());
-                manageConnectionEvents(conn);
-                
-                setTimeout(() => {
-                    broadcastStream({ type: 'system', text: `${incomingGuestName} entered the chat room.` });
-                    syncUserLists();
-                }, 500);
-            });
+            } catch (fatalError) {
+                alert("Browser runtime error while building client architecture: " + fatalError.message);
+            }
         }
 
-        function manageConnectionEvents(conn) {
-            connections.push(conn);
-            refreshConnectedDisplayCount();
+        function configureStreamEvents(channel) {
+            connections.push(channel);
+            updateStatusCounters();
 
-            conn.on('data', (data) => {
-                if (data.type === 'rejected') {
-                    alert(data.reason);
+            channel.on('data', (packet) => {
+                if (packet.type === 'denied') {
+                    alert(packet.info);
                     window.location.reload();
                 }
-                if (data.type === 'chat' || data.type === 'system') {
-                    appendMessageBubble(data);
-                    if (isHost) broadcastStream(data, conn); // Host acts as the server router relaying to everyone else
+                if (packet.type === 'chat' || packet.type === 'system') {
+                    renderMessageBubble(packet);
+                    if (isHost) pushPayload(packet, channel); // Distribute packet down the hierarchy line
                 }
-                if (data.type === 'user-list' && !isHost) {
-                    takenNames = new Set(data.list);
+                if (packet.type === 'manifest' && !isHost) {
+                    takenNames = new Set(packet.list);
                 }
             });
 
-            conn.on('close', () => {
-                connections = connections.filter(c => c !== conn);
-                refreshConnectedDisplayCount();
-                const disconnectedName = conn.metadata?.nickname || "Someone";
+            channel.on('close', () => {
+                connections = connections.filter(current => current !== channel);
+                updateStatusCounters();
+                const lostSignature = channel.metadata?.nickname || "A companion";
                 if (isHost) {
-                    takenNames.delete(disconnectedName.toLowerCase());
-                    broadcastStream({ type: 'system', text: `${disconnectedName} logged out.` });
-                    syncUserLists();
+                    takenNames.delete(lostSignature.toLowerCase());
+                    pushPayload({ type: 'system', text: `${lostSignature} dropped out.` });
+                    synchronizeNetworkUsers();
                 }
             });
         }
 
-        function refreshConnectedDisplayCount() {
-            peerCount.textContent = `Active Connections: ${connections.length}`;
+        function updateStatusCounters() {
+            peerCount.textContent = `Connections: ${connections.length}`;
         }
 
-        function syncUserLists() {
+        function synchronizeNetworkUsers() {
             if (!isHost) return;
-            broadcastStream({ type: 'user-list', list: Array.from(takenNames) });
+            pushPayload({ type: 'manifest', list: Array.from(takenNames) });
         }
 
-        // Router pipeline distribution
-        function broadcastStream(data, excludeConnection = null) {
-            connections.forEach(conn => {
-                if (conn !== excludeConnection && conn.open) {
-                    conn.send(data);
+        function pushPayload(payload, structuralSkipChannel = null) {
+            connections.forEach(channel => {
+                if (channel !== structuralSkipChannel && channel.open) {
+                    channel.send(payload);
                 }
             });
         }
 
-        // Text Message Delivery
-        function dispatchTextMessage() {
-            const text = msgInput.value.trim();
-            if (!text) return;
+        // Message Dispatch Mechanics
+        function executeTextDelivery() {
+            const rawText = msgInput.value.trim();
+            if (!rawText) return;
             msgInput.value = "";
 
-            const data = { type: 'chat', sender: myNickname, text: text };
-            appendMessageBubble(data, true);
+            const payloadObject = { type: 'chat', sender: myNickname, text: rawText };
+            renderMessageBubble(payloadObject, true);
 
-            if (isHost) broadcastStream(data);
-            else connections.forEach(c => { if(c.open) c.send(data); });
+            if (isHost) pushPayload(payloadObject);
+            else connections.forEach(channel => { if(channel.open) channel.send(payloadObject); });
         }
 
-        sendBtn.addEventListener('click', dispatchTextMessage);
-        msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') dispatchTextMessage(); });
+        sendBtn.addEventListener('click', executeTextDelivery);
+        msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeTextDelivery(); });
 
-        // Image Handling
+        // Media Input Stream Operations
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files;
-            if (!file) return;
+            const uploadedFile = e.target.files[0];
+            if (!uploadedFile) return;
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const data = {
+            const fileReaderInstance = new FileReader();
+            fileReaderInstance.onload = function(readerEvent) {
+                const structuralPayloadImage = {
                     type: 'chat',
                     sender: myNickname,
-                    image: event.target.result
+                    image: readerEvent.target.result
                 };
-                appendMessageBubble(data, true);
-                if (isHost) broadcastStream(data);
-                else connections.forEach(c => { if(c.open) c.send(data); });
+                renderMessageBubble(structuralPayloadImage, true);
+                if (isHost) pushPayload(structuralPayloadImage);
+                else connections.forEach(channel => { if(channel.open) channel.send(structuralPayloadImage); });
             };
-            reader.readAsDataURL(file);
+            fileReaderInstance.readAsDataURL(uploadedFile);
             fileInput.value = "";
         });
 
-        // UI Builder Pipeline
-        function appendMessageBubble(data, isMe = false) {
-            const msgBubble = document.createElement('div');
-            msgBubble.classList.add('msg');
-            
-            if (isMe || data.sender === myNickname) msgBubble.classList.add('me');
-
-            if (data.type === 'system') {
-                msgBubble.style.alignSelf = 'center';
-                msgBubble.style.background = '#fff3cd';
-                msgBubble.style.color = '#856404';
-                msgBubble.innerHTML = `<span style="font-size:12px;">${escapeHTML(data.text)}</span>`;
+        // Interface Engine UI Drawer Pipeline
+        function renderMessageBubble(packet, localAuthorFlag = false) {
+            if (packet.type === 'system') {
+                const systemElement = document.createElement('div');
+                systemElement.classList.add('system-msg');
+                systemElement.innerHTML = `<span>${sanitizeHTML(packet.text)}</span>`;
+                messagesDiv.appendChild(systemElement);
             } else {
-                let content = `<span class="msg-meta">${escapeHTML(data.sender)}</span>`;
-                if (data.text) content += `<div>${escapeHTML(data.text)}</div>`;
-                if (data.image) content += `<img src="${data.image}" alt="P2P Shared Image">`;
-                msgBubble.innerHTML = content;
-            }
+                const chatBubbleElement = document.createElement('div');
+                chatBubbleElement.classList.add('msg');
+                
+                if (localAuthorFlag || packet.sender === myNickname) {
+                    chatBubbleElement.classList.add('me');
+                }
 
-            messagesDiv.appendChild(msgBubble);
+                let generatedStringMarkup = `<span class="msg-meta">${sanitizeHTML(packet.sender)}</span>`;
+                if (packet.text) generatedStringMarkup += `<div>${sanitizeHTML(packet.text)}</div>`;
+                if (packet.image) generatedStringMarkup += `<img src="${packet.image}" alt="Shared Image Layout">`;
+                
+                chatBubbleElement.innerHTML = generatedStringMarkup;
+                messagesDiv.appendChild(chatBubbleElement);
+            }
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        function addSystemMessage(text) {
-            appendMessageBubble({ type: 'system', text: text });
+        function addSystemAlert(messageStringText) {
+            renderMessageBubble({ type: 'system', text: messageStringText });
         }
 
-        function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+        function sanitizeHTML(rawStringData) {
+            return rawStringData.replace(/[&<>'"]/g, matchToken => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[matchToken] || matchToken));
         }
     </script>
 </body>
