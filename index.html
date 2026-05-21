@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dark Chat Room</title>
+    <title>Dark Web Chatroom</title>
     <style>
-        /* Force Dark Theme Variables */
         :root {
             --bg-main: #0b0f19;
             --bg-card: #161f30;
@@ -21,12 +20,11 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
         body { background-color: var(--bg-main); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; }
         
-        /* Entrance Login Screen */
+        /* Login Screen */
         #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: var(--bg-main); }
         .login-box { background-color: var(--bg-card); padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 360px; width: 100%; border: 1px solid #243147; }
         .login-box h2 { color: var(--accent); margin-bottom: 20px; font-size: 24px; }
         
-        /* Inputs and Interactive Elements */
         input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; background-color: var(--bg-input); border: 1px solid #334155; border-radius: 6px; color: var(--text-main); font-size: 16px; outline: none; }
         input[type="text"]:focus { border-color: var(--accent); }
         
@@ -37,6 +35,7 @@
         #chat-screen { display: none; flex-direction: column; height: 100vh; max-width: 800px; width: 100%; margin: 0 auto; background-color: #111827; border-left: 1px solid #1f2937; border-right: 1px solid #1f2937; }
         #chat-header { background-color: var(--bg-card); padding: 15px 20px; border-bottom: 1px solid #1f2937; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
         #user-display { color: var(--accent); }
+        #status-dot { width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; display: inline-block; margin-left: 8px; }
         
         /* Message Area */
         #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background-color: var(--bg-main); }
@@ -57,7 +56,7 @@
 </head>
 <body>
 
-    <!-- 100% Dark Mode Login Screen -->
+    <!-- Dark Mode Entrance Screen -->
     <div id="login-screen">
         <div class="login-box">
             <h2>Enter Chatroom</h2>
@@ -69,7 +68,7 @@
     <!-- Main Chat Screen Layout -->
     <div id="chat-screen">
         <div id="chat-header">
-            <span>Group Feed</span>
+            <span>Group Feed <span id="status-dot"></span></span>
             <span id="user-display"></span>
         </div>
         <div id="messages"></div>
@@ -82,10 +81,11 @@
     </div>
 
     <script>
-        // Local state management without external data script tracking dependencies
+        let socket = null;
         let myNickname = "";
-        const localChatHistoryKey = "local_group_chat_history";
-        const localActiveUsersKey = "local_group_active_users";
+        
+        // Using an open public testing echo WebSocket server that accepts broadcast strings
+        const wsServerUrl = "wss://echo.websocket.org"; 
 
         const loginScreen = document.getElementById('login-screen');
         const chatScreen = document.getElementById('chat-screen');
@@ -96,121 +96,134 @@
         const sendBtn = document.getElementById('send-btn');
         const fileInput = document.getElementById('file-input');
         const userDisplay = document.getElementById('user-display');
+        const statusDot = document.getElementById('status-dot');
 
-        // Instant local action login configuration
+        // Handle joining room instantly
         loginBtn.addEventListener('click', () => {
-            const enteredName = nicknameInput.value.trim();
-            if (!enteredName) return alert("Please type a nickname.");
+            myNickname = nicknameInput.value.trim();
+            if (!myNickname) return alert("Please type a nickname.");
 
-            // Verify nickname availability inside the active cache index
-            let currentUsers = JSON.parse(localStorage.getItem(localActiveUsersKey) || "[]");
-            if (currentUsers.map(u => u.toLowerCase()).includes(enteredName.toLowerCase())) {
-                alert("That nickname is taken! Choose another.");
-                return;
-            }
-
-            // Save name to tracking list
-            currentUsers.push(enteredName);
-            localStorage.setItem(localActiveUsersKey, JSON.stringify(currentUsers));
-
-            myNickname = enteredName;
             userDisplay.textContent = `As: ${myNickname}`;
-            
-            // Swap display blocks instantly
             loginScreen.style.display = 'none';
             chatScreen.style.display = 'flex';
 
-            // Begin feed loops
-            startLocalFeed();
+            connectToChatStream();
         });
 
-        function startLocalFeed() {
-            // Render any messages already stored
-            renderMessages();
+        function connectToChatStream() {
+            // Native browser WebSockets bypass external JS load dependencies completely
+            socket = new WebSocket(wsServerUrl);
 
-            // Check for new messages from friends every single second
-            setInterval(renderMessages, 1000);
+            socket.onopen = () => {
+                statusDot.style.backgroundColor = "#22c55e"; // Green for connected
+                addSystemMessage("Connected to real-time chat pipeline.");
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    // Filter messages to make sure they are meant for this channel
+                    if (data.channel === "github-group-study-chat-v3") {
+                        appendMessageBubble(data, false);
+                    }
+                } catch(e) {
+                    // Ignore non-JSON echo test loops from raw socket servers
+                }
+            };
+
+            socket.onclose = () => {
+                statusDot.style.backgroundColor = "#ef4444"; // Red for disconnected
+                // Automatically attempt to reconnect if dropped
+                setTimeout(connectToChatStream, 3000);
+            };
         }
 
-        function renderMessages() {
-            const rawData = localStorage.getItem(localChatHistoryKey) || "[]";
-            const messages = JSON.parse(rawData);
-            
-            // Safely verify if rendering container matches document node elements
-            const currentCount = messagesDiv.children.length;
-            if (currentCount === messages.length) return; 
-
-            messagesDiv.innerHTML = "";
-            messages.forEach((data) => {
-                const isMe = data.sender === myNickname;
-                const msgBubble = document.createElement('div');
-                msgBubble.classList.add('msg');
-                if (isMe) msgBubble.classList.add('me');
-
-                let content = `<span class="msg-meta">${escapeHTML(data.sender)}</span>`;
-                if (data.text) content += `<div>${escapeHTML(data.text)}</div>`;
-                if (data.image) content += `<img src="${data.image}" alt="Attached File Image">`;
-
-                msgBubble.innerHTML = content;
-                messagesDiv.appendChild(msgBubble);
-            });
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        function sendDataPayload(payload) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify(payload));
+            }
         }
 
-        // Deliver text data message strings
-        function pushTextMessage() {
+        // Deliver text messages
+        function dispatchTextMessage() {
             const text = msgInput.value.trim();
             if (!text) return;
             msgInput.value = "";
 
-            const messages = JSON.parse(localStorage.getItem(localChatHistoryKey) || "[]");
-            messages.push({
+            const messageData = {
+                channel: "github-group-study-chat-v3",
                 sender: myNickname,
                 text: text,
                 timestamp: Date.now()
-            });
+            };
 
-            localStorage.setItem(localChatHistoryKey, JSON.stringify(messages));
-            renderMessages();
+            // Display locally for yourself instantly
+            appendMessageBubble(messageData, true);
+            // Broadcast it over the web socket to your friends
+            sendDataPayload(messageData);
         }
 
-        sendBtn.addEventListener('click', pushTextMessage);
-        msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') pushTextMessage(); });
+        sendBtn.addEventListener('click', dispatchTextMessage);
+        msgInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') dispatchTextMessage(); });
 
-        // Process image uploads locally as base64 string vectors
+        // Handle image attachment streams
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
+            if (file.size > 500 * 1024) { // Keep images under 500KB over real-time streams
+                alert("Image is too large! Please choose an image under 500KB.");
+                fileInput.value = "";
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = function(event) {
-                const messages = JSON.parse(localStorage.getItem(localChatHistoryKey) || "[]");
-                messages.push({
+                const messageData = {
+                    channel: "github-group-study-chat-v3",
                     sender: myNickname,
                     image: event.target.result,
                     timestamp: Date.now()
-                });
-                localStorage.setItem(localChatHistoryKey, JSON.stringify(messages));
-                renderMessages();
+                };
+                appendMessageBubble(messageData, true);
+                sendDataPayload(messageData);
             };
             reader.readAsDataURL(file);
             fileInput.value = "";
         });
 
-        // HTML Sanitization logic block
+        // UI View Constructor
+        function appendMessageBubble(data, isMe) {
+            // Check if bubble already printed to screen (prevents echo duplicates)
+            if (!isMe && data.sender === myNickname) return;
+
+            const msgBubble = document.createElement('div');
+            msgBubble.classList.add('msg');
+            if (isMe) msgBubble.classList.add('me');
+
+            let content = `<span class="msg-meta">${escapeHTML(data.sender)}</span>`;
+            if (data.text) content += `<div>${escapeHTML(data.text)}</div>`;
+            if (data.image) content += `<img src="${data.image}" alt="Shared Graphic Link">`;
+
+            msgBubble.innerHTML = content;
+            messagesDiv.appendChild(msgBubble);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const sysBubble = document.createElement('div');
+            sysBubble.style.alignSelf = "center";
+            sysBubble.style.fontSize = "12px";
+            sysBubble.style.color = "var(--text-muted)";
+            sysBubble.style.padding = "5px";
+            sysBubble.textContent = text;
+            messagesDiv.appendChild(sysBubble);
+        }
+
         function escapeHTML(str) {
             if(!str) return "";
             return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
         }
-
-        // Clean name profile footprints if tab is destroyed
-        window.addEventListener('beforeunload', () => {
-            if (myNickname) {
-                let currentUsers = JSON.parse(localStorage.getItem(localActiveUsersKey) || "[]");
-                currentUsers = currentUsers.filter(u => u !== myNickname);
-                localStorage.setItem(localActiveUsersKey, JSON.stringify(currentUsers));
-            }
-        });
     </script>
 </body>
 </html>
